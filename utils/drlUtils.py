@@ -107,7 +107,7 @@ class Worker():
                 done = False
                 num_treatments = 0
                 patient_action_history = ""
-                n0 = currParamsDic['n0']
+                n0 = currParamsDic['initialCellDen']
                 # Loop til finished
                 t_start = 0
                 t_end = 0
@@ -148,7 +148,7 @@ class Worker():
                     observations_deltas = np.array(observations_deltas)
 
                     network_input = np.concatenate([observations_sizes, observations_deltas])
-                    network_input = np.expand_dims(network_input, axis=2) # Add a fake dimension to make it compatible with the LSTM layer which needs 3 dims
+                    network_input = np.expand_dims(network_input, axis=1) # Add a fake dimension to make it compatible with the LSTM layer which needs 3 dims
                     assert not np.any(np.isnan(network_input)), "Invalid input occured"
 
 
@@ -161,10 +161,10 @@ class Worker():
                     # Treat the patient and observe the response
                     if a == 0:
                         # Treat with 0% strength (holiday)
-                        model.Simulate([[t_start, t_end, 0]], scaleTumourVolume=False)
+                        model.Simulate([[t_start, t_end, 0]], **currParamsDic)
                         patient_action_history += "H"
                     else:
-                        model.Simulate([[t_start, t_end, model.paramDic['DMax']]], scaleTumourVolume=False)
+                        model.Simulate([[t_start, t_end, model.paramDic['DMax']]], **currParamsDic)
                         patient_action_history += "T"
 
                     # Calculate the reward
@@ -425,11 +425,12 @@ def run_evaluation(model_path, patients_to_evaluate, architecture_kws={}, n_repl
         for patientId, replicateId in tqdm(list(product(patientsDf.PatientId.unique(),np.arange(n_replicates))), file=tqdm_output):
             # Initialize the ODE model instance & parameterize it
             model = ODE_model(method='RK45', dt=updating_interval)
+            model.plot = []
 
             # Load the parameter set for this virtual patient from the database with the evaluation parameter sets.
             currParamsDic = patientsDf.loc[patientsDf.PatientId==patientId].iloc[0].to_dict()
             model.SetParams(**currParamsDic)
-            n0 = currParamsDic['n0']
+            n0 = currParamsDic['initialCellDen']
 
             # Book keeping variables
             done = False
@@ -480,7 +481,7 @@ def run_evaluation(model_path, patients_to_evaluate, architecture_kws={}, n_repl
                     observations_deltas.append(observations_sizes[i + 1] - observations_sizes[i])
                     
                 network_input = np.concatenate([observations_sizes, observations_deltas]) 
-                network_input = np.expand_dims(network_input, axis=2) # Add a fake dimension to make it compatible with the LSTM layer which needs 3 dims
+                network_input = np.expand_dims(network_input, axis=1) # Add a fake dimension to make it compatible with the LSTM layer which needs 3 dims
                 assert not np.any(np.isnan(network_input))
 
                 # Take an action using probabilities from policy network output.
@@ -492,11 +493,13 @@ def run_evaluation(model_path, patients_to_evaluate, architecture_kws={}, n_repl
                 # Treat the patient and observe the response
                 if a == 0:
                     # Treat with 0% strength (holiday)
-                    model.Simulate([[t_start, t_end, 0]], scaleTumourVolume=False)
+                    model.Simulate([[t_start, t_end, 0]], **currParamsDic)
                     patient_action_history += "H"
+                    model.plot += model.plateStateLog
                 else:
-                    model.Simulate([[t_start, t_end, model.paramDic['DMax']]], scaleTumourVolume=False)
+                    model.Simulate([[t_start, t_end, model.paramDic['DMax']]], **currParamsDic)
                     patient_action_history += "T"
+                    model.plot += model.plateStateLog
 
                 # Calculate the reward
                 results = model.resultsDf
@@ -529,8 +532,10 @@ def run_evaluation(model_path, patients_to_evaluate, architecture_kws={}, n_repl
                                                  'Support_Hol': a_dist[0][0], 'Support_Treat': a_dist[0][1],
                                                  'Action': patient_action_history[-1],
                                                  'PatientId': patientId})
+            # model.plot.append(model.currStateVec)
 
         # Save the results
         longitudinalTrajectoriesDf = pd.DataFrame(timestep_summmaryList)
         longitudinalTrajectoriesDf.to_csv(
             os.path.join(results_path, results_file_name))
+    return model.plot

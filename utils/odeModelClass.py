@@ -7,6 +7,9 @@ import pandas as pd
 import os
 import sys
 import contextlib
+import random
+import math
+import copy
 if 'matplotlib' not in sys.modules:
     import matplotlib as mpl
     mpl.use('Agg')
@@ -64,75 +67,213 @@ class ODEModel():
 
     # =========================================================================================
     # Function to simulate the model
-    def Simulate(self, treatmentScheduleList, **kwargs):
-        # Allow configuring the solver at this point as well
-        self.dt = float(kwargs.get('dt', self.dt))  # Time resolution to return the model prediction on
-        self.absErr = kwargs.get('absErr', self.absErr)  # Absolute error allowed for ODE solver
-        self.relErr = kwargs.get('relErr', self.relErr)  # Relative error allowed for ODE solver
-        self.solverMethod = kwargs.get('method', self.solverMethod)  # ODE solver used
-        self.successB = False  # Indicate successful solution of the ODE system
-        self.suppressOutputB = kwargs.get('suppressOutputB',
-                                          self.suppressOutputB)  # If true, suppress output of ODE solver (including warning messages)
+    # def Simulate(self, treatmentScheduleList, **kwargs):
+    #     # Allow configuring the solver at this point as well
+    #     self.dt = float(kwargs.get('dt', self.dt))  # Time resolution to return the model prediction on
+    #     self.absErr = kwargs.get('absErr', self.absErr)  # Absolute error allowed for ODE solver
+    #     self.relErr = kwargs.get('relErr', self.relErr)  # Relative error allowed for ODE solver
+    #     self.solverMethod = kwargs.get('method', self.solverMethod)  # ODE solver used
+    #     self.successB = False  # Indicate successful solution of the ODE system
+    #     self.suppressOutputB = kwargs.get('suppressOutputB',
+    #                                       self.suppressOutputB)  # If true, suppress output of ODE solver (including warning messages)
 
-        # Solve
+    #     # Solve
+    #     self.treatmentScheduleList = treatmentScheduleList
+    #     if self.resultsDf is None or treatmentScheduleList[0][0] == 0:
+    #         currStateVec = self.initialStateList + [0]
+    #         self.resultsDf = None
+    #     else:
+    #         currStateVec = [self.resultsDf[var].iloc[-1] for var in self.stateVars] + [self.resultsDf['DrugConcentration'].iloc[-1]]
+    #     resultsDFList = []
+    #     encounteredProblemB = False
+    #     for intervalId, interval in enumerate(treatmentScheduleList):
+    #         # Seems to be a bug here, no matter which intervalID is, due to exclusion of end points of np.arange, need to add one extra self.dt
+    #         # tVec = np.arange(interval[0], interval[1], self.dt)
+    #         # if intervalId == (len(treatmentScheduleList) - 1):
+    #         tVec = np.arange(interval[0], interval[1] + self.dt, self.dt)
+    #         currStateVec[-1] = interval[2]
+    #         if self.suppressOutputB:
+    #             with stdout_redirected():
+    #                 solObj = scipy.integrate.solve_ivp(self.ModelEqns, y0=currStateVec,
+    #                                                    t_span=(tVec[0], tVec[-1] + self.dt), t_eval=tVec,
+    #                                                    method=self.solverMethod,
+    #                                                    atol=self.absErr, rtol=self.relErr,
+    #                                                    max_step=kwargs.get('max_step', 1))
+    #         else:
+    #             solObj = scipy.integrate.solve_ivp(self.ModelEqns, y0=currStateVec,
+    #                                                t_span=(tVec[0], tVec[-1] + self.dt), t_eval=tVec,
+    #                                                method=self.solverMethod,
+    #                                                atol=self.absErr, rtol=self.relErr,
+    #                                                max_step=kwargs.get('max_step', 1))
+    #         # Check that the solver converged
+    #         if not solObj.success or np.any(solObj.y < 0):
+    #             self.errMessage = solObj.message
+    #             encounteredProblemB = True
+    #             if not self.suppressOutputB: print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    #             if not solObj.success:
+    #                 if not self.suppressOutputB: print(self.errMessage)
+    #             else:
+    #                 if not self.suppressOutputB: print(
+    #                     "Negative values encountered in the solution. Make the time step smaller or consider using a stiff solver.")
+    #                 if not self.suppressOutputB: print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    #             self.solObj = solObj
+    #             break
+    #         # Save results
+    #         resultsDFList.append(
+    #             pd.DataFrame({"Time": tVec, "DrugConcentration": solObj.y[-1, :],
+    #                           **dict(zip(self.stateVars,solObj.y))}))
+    #         currStateVec = solObj.y[:, -1]
+    #     # If the solver diverges in the first interval, it can't return any solution. Catch this here, and in this case
+    #     # replace the solution with all zeros.
+    #     if len(resultsDFList) > 0:
+    #         resultsDf = pd.concat(resultsDFList)
+    #     else:
+    #         resultsDf = pd.DataFrame({"Time": tVec, "DrugConcentration": np.zeros_like(tVec),
+    #                                  **dict(zip(self.stateVars,np.zeros_like(tVec)))})
+    #     # Compute the fluorescent area that we'll see
+    #     resultsDf['TumourSize'] = pd.Series(self.RunCellCountToTumourSizeModel(resultsDf),
+    #                                         index=resultsDf.index)
+    #     if self.resultsDf is not None:
+    #         resultsDf = pd.concat([self.resultsDf, resultsDf])
+    #     self.resultsDf = resultsDf
+    #     self.successB = True if not encounteredProblemB else False
+    
+    def Simulate(self, treatmentScheduleList, **kwargs):
+        self.dt = float(kwargs.get('dt', self.dt))  # Time resolution to return the model prediction on
+        self.l = int(kwargs.get('l', 100))
+        self.rS = kwargs.get('rS', 0.027)
+        self.cR = kwargs.get('cR', 0.25)
+        self.dCell = kwargs.get('dCell', 0.25)
+        self.dDrug = kwargs.get('dDrug', 0.75)
+        self.initialCellDen = kwargs.get('initialCellDen', 0.5)
+        self.initialResistDen = kwargs.get('initialResistDen', 0.05)
+        self.initialDist = kwargs.get('initialDist', None)
+        if type(self.initialDist) == float:
+            if math.isnan(self.initialDist):
+                self.initialDist = None
+
+
         self.treatmentScheduleList = treatmentScheduleList
         if self.resultsDf is None or treatmentScheduleList[0][0] == 0:
-            currStateVec = self.initialStateList + [0]
-            self.resultsDf = None
-        else:
-            currStateVec = [self.resultsDf[var].iloc[-1] for var in self.stateVars] + [self.resultsDf['DrugConcentration'].iloc[-1]]
-        resultsDFList = []
-        encounteredProblemB = False
-        for intervalId, interval in enumerate(treatmentScheduleList):
-            tVec = np.arange(interval[0], interval[1], self.dt)
-            if intervalId == (len(treatmentScheduleList) - 1):
-                tVec = np.arange(interval[0], interval[1] + self.dt, self.dt)
-            currStateVec[-1] = interval[2]
-            if self.suppressOutputB:
-                with stdout_redirected():
-                    solObj = scipy.integrate.solve_ivp(self.ModelEqns, y0=currStateVec,
-                                                       t_span=(tVec[0], tVec[-1] + self.dt), t_eval=tVec,
-                                                       method=self.solverMethod,
-                                                       atol=self.absErr, rtol=self.relErr,
-                                                       max_step=kwargs.get('max_step', 1))
+            if self.initialDist is None:
+                posCell = np.random.randint(0, self.l ** 2, size=round(self.initialCellDen * self.l ** 2))
+                posResistCell = random.sample(list(posCell), round(len(posCell) * self.initialResistDen))
+                currStateVec = [0] * self.l ** 2
+                for pos in posCell:
+                    currStateVec[pos] = 1
+                for pos in posResistCell:
+                    currStateVec[pos] = 2
+                currStateVec = np.array(currStateVec).reshape(self.l, self.l)
+                self.resultsDf = None
+                self.resultStateVec = copy.deepcopy(currStateVec)
             else:
-                solObj = scipy.integrate.solve_ivp(self.ModelEqns, y0=currStateVec,
-                                                   t_span=(tVec[0], tVec[-1] + self.dt), t_eval=tVec,
-                                                   method=self.solverMethod,
-                                                   atol=self.absErr, rtol=self.relErr,
-                                                   max_step=kwargs.get('max_step', 1))
-            # Check that the solver converged
-            if not solObj.success or np.any(solObj.y < 0):
-                self.errMessage = solObj.message
-                encounteredProblemB = True
-                if not self.suppressOutputB: print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-                if not solObj.success:
-                    if not self.suppressOutputB: print(self.errMessage)
-                else:
-                    if not self.suppressOutputB: print(
-                        "Negative values encountered in the solution. Make the time step smaller or consider using a stiff solver.")
-                    if not self.suppressOutputB: print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-                self.solObj = solObj
-                break
-            # Save results
-            resultsDFList.append(
-                pd.DataFrame({"Time": tVec, "DrugConcentration": solObj.y[-1, :],
-                              **dict(zip(self.stateVars,solObj.y))}))
-            currStateVec = solObj.y[:, -1]
-        # If the solver diverges in the first interval, it can't return any solution. Catch this here, and in this case
-        # replace the solution with all zeros.
-        if len(resultsDFList) > 0:
-            resultsDf = pd.concat(resultsDFList)
+                currStateVec = np.array(self.initialDist)
+                self.resultsDf = None
+                self.resultStateVec = copy.deepcopy(currStateVec)
         else:
-            resultsDf = pd.DataFrame({"Time": tVec, "DrugConcentration": np.zeros_like(tVec),
-                                     **dict(zip(self.stateVars,np.zeros_like(tVec)))})
+            currStateVec = copy.deepcopy(self.resultStateVec)
+        resultsDFList = []
+        for intervalId, interval in enumerate(treatmentScheduleList):
+            # Seems to be a bug here, no matter which intervalID is, due to exclusion of end points of np.arange, need to add one extra self.dt
+            # tVec = np.arange(interval[0], interval[1], self.dt)
+            # if intervalId == (len(treatmentScheduleList) - 1):
+            tStart = interval[0]
+            tEnd = interval[1]
+            dose = interval[2]
+            thresholdS = [self.rS, self.rS * (1 + self.dCell), 1]
+            thresholdR = [(1 - self.cR) * self.rS, (1 - self.cR) * self.rS + self.rS * self.dCell, 1]
+            self.plateStateLog = []
+            for t in range(tStart, tEnd):
+                self.plateStateLog.append(copy.deepcopy(currStateVec))
+                for i in range(self.l):
+                    for j in range(self.l):
+                        if currStateVec[i, j] == 0:
+                            pass
+                        elif currStateVec[i, j] == 100:
+                            pass
+                        elif currStateVec[i, j] == 10:
+                            pass
+                        elif currStateVec[i, j] == 1:
+                            rand = np.random.rand()
+                            if rand < thresholdS[0]:
+                                currNeighb = []
+                                if i == 0:
+                                    currNeighb.append(None)
+                                else:
+                                    currNeighb.append([(i - 1, j), currStateVec[i - 1, j]])
+                                if i == self.l - 1:
+                                    currNeighb.append(None)
+                                else:
+                                    currNeighb.append([(i + 1, j), currStateVec[i + 1, j]])
+                                if j == 0:
+                                    currNeighb.append(None)
+                                else:
+                                    currNeighb.append([(i, j - 1), currStateVec[i, j - 1]])
+                                if j == self.l - 1:
+                                    currNeighb.append(None)
+                                else:
+                                    currNeighb.append([(i, j + 1), currStateVec[i, j + 1]])
+                                currNeighb = [item for item in currNeighb if item is not None]
+                                currNeighb = [item for item in currNeighb if item[1] == 0]
+                                if currNeighb:
+                                    randKill = np.random.rand()
+                                    if randKill < dose * self.dDrug:
+                                        currStateVec[i, j] == 0
+                                    else:
+                                        posProliferate = random.sample(currNeighb, 1)[0][0]
+                                        currStateVec[posProliferate] = 10
+                            elif rand < thresholdS[1]:
+                                currStateVec[i, j] = 0
+                            else:
+                                pass
+                        elif currStateVec[i, j] == 2:
+                            rand = np.random.rand()
+                            if rand < thresholdR[0]:
+                                currNeighb = []
+                                if i == 0:
+                                    currNeighb.append(None)
+                                else:
+                                    currNeighb.append([(i - 1, j), currStateVec[i - 1, j]])
+                                if i == self.l - 1:
+                                    currNeighb.append(None)
+                                else:
+                                    currNeighb.append([(i + 1, j), currStateVec[i + 1, j]])
+                                if j == 0:
+                                    currNeighb.append(None)
+                                else:
+                                    currNeighb.append([(i, j - 1), currStateVec[i, j - 1]])
+                                if j == self.l - 1:
+                                    currNeighb.append(None)
+                                else:
+                                    currNeighb.append([(i, j + 1), currStateVec[i, j + 1]])
+                                currNeighb = [item for item in currNeighb if item is not None]
+                                currNeighb = [item for item in currNeighb if item[1] == 0]
+                                if currNeighb:
+                                    posProliferate = random.sample(list(currNeighb), 1)[0][0]
+                                    currStateVec[posProliferate] = 100
+                            elif rand < thresholdR[1]:
+                                currStateVec[i, j] = 0
+                            else:
+                                pass
+                currStateVec = currStateVec.reshape(1, -1)[0]
+                currStateVec = np.array([1 if item == 10 else item for item in currStateVec])
+                currStateVec = np.array([2 if item == 100 else item for item in currStateVec])
+                currStateVec = currStateVec.reshape(self.l, self.l)
+            numS = [np.sum(self.resultStateVec == 1) / self.l ** 2, np.sum(currStateVec == 1) / self.l ** 2]
+            numR = [np.sum(self.resultStateVec == 2) / self.l ** 2, np.sum(currStateVec == 2) / self.l ** 2]
+            self.resultStateVec = copy.deepcopy(currStateVec)
+            resultsDFList.append(
+                pd.DataFrame({"Time": [tStart, tEnd], "DrugConcentration": [dose, dose],
+                              **dict(zip(self.stateVars,[numS, numR]))}))
+        resultsDf = pd.concat(resultsDFList)
         # Compute the fluorescent area that we'll see
         resultsDf['TumourSize'] = pd.Series(self.RunCellCountToTumourSizeModel(resultsDf),
                                             index=resultsDf.index)
         if self.resultsDf is not None:
             resultsDf = pd.concat([self.resultsDf, resultsDf])
         self.resultsDf = resultsDf
-        self.successB = True if not encounteredProblemB else False
+        self.successB = True
+
 
     # =========================================================================================
     # Define the model mapping cell counts to observed fluorescent area
