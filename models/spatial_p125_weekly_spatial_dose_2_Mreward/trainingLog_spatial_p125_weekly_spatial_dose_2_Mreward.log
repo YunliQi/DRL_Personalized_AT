@@ -1,0 +1,81 @@
+2024-01-19 20:49:40,124 - tensorflow- WARNING - From /home/yunli/anaconda3/envs/DRL-Rotation/lib/python3.6/site-packages/tensorflow/python/keras/_impl/keras/backend.py:1456: calling reduce_sum (from tensorflow.python.ops.math_ops) with keep_dims is deprecated and will be removed in a future version.
+Instructions for updating:
+keep_dims is deprecated, use keepdims instead
+2024-01-19 20:49:43,002 - root- INFO - Starting worker 0
+2024-01-19 20:49:43,588 - root- INFO - Starting worker 1
+2024-01-19 20:49:44,207 - root- INFO - Starting worker 2
+2024-01-19 20:49:44,456 - root- DEBUG - 1 patients treated. Total treatments: 4 x 7 = 28. Total score: 0.050000
+2024-01-19 20:49:44,752 - root- INFO - Starting worker 3
+2024-01-19 20:49:45,284 - root- INFO - Starting worker 4
+2024-01-19 20:49:45,757 - root- INFO - Starting worker 5
+2024-01-19 20:49:46,502 - root- INFO - Starting worker 6
+2024-01-19 20:49:46,942 - root- INFO - Starting worker 7
+2024-01-19 20:49:49,551 - root- DEBUG - 2 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:49:50,647 - root- DEBUG - 3 patients treated. Total treatments: 9 x 7 = 63. Total score: 0.500000
+2024-01-19 20:49:50,664 - root- DEBUG - 4 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:49:50,770 - root- DEBUG - 5 patients treated. Total treatments: 6 x 7 = 42. Total score: 0.250000
+2024-01-19 20:49:51,092 - root- DEBUG - 6 patients treated. Total treatments: 6 x 7 = 42. Total score: 0.250000
+2024-01-19 20:49:51,683 - root- DEBUG - 7 patients treated. Total treatments: 8 x 7 = 56. Total score: 0.400000
+2024-01-19 20:49:55,582 - root- DEBUG - 8 patients treated. Total treatments: 6 x 7 = 42. Total score: 0.250000
+2024-01-19 20:49:56,567 - root- DEBUG - 9 patients treated. Total treatments: 11 x 7 = 77. Total score: 0.750000
+2024-01-19 20:49:57,002 - root- DEBUG - 10 patients treated. Total treatments: 9 x 7 = 63. Total score: 0.500000
+2024-01-19 20:49:58,045 - root- DEBUG - 11 patients treated. Total treatments: 12 x 7 = 84. Total score: 0.950000
+2024-01-19 20:49:58,195 - root- DEBUG - 12 patients treated. Total treatments: 14 x 7 = 98. Total score: 1.150000
+2024-01-19 20:49:59,017 - root- DEBUG - 13 patients treated. Total treatments: 3 x 7 = 21. Total score: 0.000000
+2024-01-19 20:49:59,168 - root- DEBUG - 14 patients treated. Total treatments: 12 x 7 = 84. Total score: 0.850000
+2024-01-19 20:49:59,904 - root- DEBUG - 15 patients treated. Total treatments: 28 x 7 = 196. Total score: 2.450000
+2024-01-19 20:50:01,518 - root- DEBUG - 16 patients treated. Total treatments: 28 x 7 = 196. Total score: 2.650000
+2024-01-19 20:50:02,541 - root- DEBUG - 17 patients treated. Total treatments: 9 x 7 = 63. Total score: 0.600000
+2024-01-19 20:50:02,902 - root- DEBUG - 18 patients treated. Total treatments: 8 x 7 = 56. Total score: 0.400000
+2024-01-19 20:50:03,427 - root- DEBUG - 19 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:50:05,262 - root- DEBUG - 20 patients treated. Total treatments: 11 x 7 = 77. Total score: 0.650000
+2024-01-19 20:50:05,766 - root- DEBUG - 21 patients treated. Total treatments: 3 x 7 = 21. Total score: 0.000000
+2024-01-19 20:50:06,317 - root- DEBUG - 22 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:50:06,995 - root- DEBUG - 23 patients treated. Total treatments: 12 x 7 = 84. Total score: 0.750000
+2024-01-19 20:50:08,890 - root- DEBUG - 24 patients treated. Total treatments: 22 x 7 = 154. Total score: 1.600000
+2024-01-19 20:50:08,932 - root- DEBUG - 25 patients treated. Total treatments: 3 x 7 = 21. Total score: 0.000000
+2024-01-19 20:50:09,009 - root- DEBUG - 26 patients treated. Total treatments: 12 x 7 = 84. Total score: 0.850000
+2024-01-19 20:50:09,810 - root- DEBUG - 27 patients treated. Total treatments: 11 x 7 = 77. Total score: 0.850000
+2024-01-19 20:50:10,418 - root- DEBUG - 28 patients treated. Total treatments: 6 x 7 = 42. Total score: 0.250000
+2024-01-19 20:50:10,459 - root- DEBUG - 29 patients treated. Total treatments: 8 x 7 = 56. Total score: 0.400000
+2024-01-19 20:50:11,783 - root- DEBUG - 30 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:50:12,578 - root- DEBUG - 31 patients treated. Total treatments: 23 x 7 = 161. Total score: 1.900000
+2024-01-19 20:50:12,846 - root- DEBUG - 32 patients treated. Total treatments: 3 x 7 = 21. Total score: 0.000000
+2024-01-19 20:50:12,972 - root- DEBUG - 33 patients treated. Total treatments: 12 x 7 = 84. Total score: 0.750000
+2024-01-19 20:50:14,273 - root- DEBUG - 34 patients treated. Total treatments: 8 x 7 = 56. Total score: 0.400000
+2024-01-19 20:50:15,163 - root- DEBUG - 35 patients treated. Total treatments: 3 x 7 = 21. Total score: 0.000000
+2024-01-19 20:50:16,477 - root- DEBUG - 36 patients treated. Total treatments: 10 x 7 = 70. Total score: 0.700000
+2024-01-19 20:50:17,200 - root- DEBUG - 37 patients treated. Total treatments: 13 x 7 = 91. Total score: 0.950000
+2024-01-19 20:50:17,725 - root- DEBUG - 38 patients treated. Total treatments: 9 x 7 = 63. Total score: 0.600000
+2024-01-19 20:50:19,205 - root- DEBUG - 39 patients treated. Total treatments: 8 x 7 = 56. Total score: 0.400000
+2024-01-19 20:50:19,422 - root- DEBUG - 40 patients treated. Total treatments: 16 x 7 = 112. Total score: 1.200000
+2024-01-19 20:50:21,151 - root- DEBUG - 41 patients treated. Total treatments: 6 x 7 = 42. Total score: 0.250000
+2024-01-19 20:50:21,245 - root- DEBUG - 42 patients treated. Total treatments: 6 x 7 = 42. Total score: 0.250000
+2024-01-19 20:50:21,284 - root- DEBUG - 43 patients treated. Total treatments: 14 x 7 = 98. Total score: 0.900000
+2024-01-19 20:50:23,733 - root- DEBUG - 44 patients treated. Total treatments: 12 x 7 = 84. Total score: 0.850000
+2024-01-19 20:50:24,525 - root- DEBUG - 45 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:50:25,893 - root- DEBUG - 46 patients treated. Total treatments: 16 x 7 = 112. Total score: 1.100000
+2024-01-19 20:50:26,295 - root- DEBUG - 47 patients treated. Total treatments: 8 x 7 = 56. Total score: 0.400000
+2024-01-19 20:50:27,863 - root- DEBUG - 48 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:50:28,491 - root- DEBUG - 49 patients treated. Total treatments: 3 x 7 = 21. Total score: 0.000000
+2024-01-19 20:50:31,122 - root- DEBUG - 50 patients treated. Total treatments: 8 x 7 = 56. Total score: 0.400000
+2024-01-19 20:50:31,992 - root- DEBUG - 51 patients treated. Total treatments: 21 x 7 = 147. Total score: 1.700000
+2024-01-19 20:50:32,934 - root- DEBUG - 52 patients treated. Total treatments: 7 x 7 = 49. Total score: 0.300000
+2024-01-19 20:50:33,686 - root- DEBUG - 53 patients treated. Total treatments: 23 x 7 = 161. Total score: 1.900000
+2024-01-19 20:50:35,199 - root- DEBUG - 54 patients treated. Total treatments: 9 x 7 = 63. Total score: 0.500000
+2024-01-19 20:50:35,407 - root- DEBUG - 55 patients treated. Total treatments: 24 x 7 = 168. Total score: 2.000000
+2024-01-19 20:50:35,882 - root- DEBUG - 56 patients treated. Total treatments: 42 x 7 = 294. Total score: 3.600000
+2024-01-19 20:50:37,589 - root- DEBUG - 57 patients treated. Total treatments: 10 x 7 = 70. Total score: 0.600000
+2024-01-19 20:50:38,260 - root- DEBUG - 58 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:50:38,699 - root- DEBUG - 59 patients treated. Total treatments: 9 x 7 = 63. Total score: 0.600000
+2024-01-19 20:50:38,903 - root- DEBUG - 60 patients treated. Total treatments: 6 x 7 = 42. Total score: 0.250000
+2024-01-19 20:50:39,178 - root- DEBUG - 61 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:50:40,371 - root- DEBUG - 62 patients treated. Total treatments: 30 x 7 = 210. Total score: 2.700000
+2024-01-19 20:50:42,266 - root- DEBUG - 63 patients treated. Total treatments: 5 x 7 = 35. Total score: 0.150000
+2024-01-19 20:50:43,458 - root- DEBUG - 64 patients treated. Total treatments: 7 x 7 = 49. Total score: 0.450000
+2024-01-19 20:50:43,595 - root- DEBUG - 65 patients treated. Total treatments: 19 x 7 = 133. Total score: 1.350000
+2024-01-19 20:50:44,484 - root- DEBUG - 66 patients treated. Total treatments: 6 x 7 = 42. Total score: 0.250000
+2024-01-19 20:50:45,204 - root- DEBUG - 67 patients treated. Total treatments: 10 x 7 = 70. Total score: 0.700000
+2024-01-19 20:50:45,471 - root- DEBUG - 68 patients treated. Total treatments: 19 x 7 = 133. Total score: 1.350000
+2024-01-19 20:50:45,927 - root- DEBUG - 69 patients treated. Total treatments: 6 x 7 = 42. Total score: 0.250000
+2024-01-19 20:50:46,285 - root- DEBUG - 70 patients treated. Total treatments: 13 x 7 = 91. Total score: 0.950000

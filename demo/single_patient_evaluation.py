@@ -17,30 +17,49 @@ if __name__ == '__main__':
     # DRL parameters
     n_doseOptions = 2
     day_interval = 7  # Interval between decision points (time step)
-    model_path = "../models/spatial_p125_weekly_increased_n0/400_patients_spatial_p125_weekly_increased_n0"  # Path to save model
+    model_path = "../models/spatial_p125_weekly_spatial_dose_2_longrun/20000_patients_spatial_p125_weekly_spatial_dose_2_longrun"  # Path to save model
     verbose = 2
     
     # Tumour model parameters
     l = 100
-    initialResistDen = 0.05
-    initialCellDen = 0.75
+    initialResistDen = 0.1
+    initialCellDen = 0.5
 
-    initial_state = posCell = np.random.randint(0, l ** 2, size=round(initialCellDen * l ** 2))
-    posResistCell = random.sample(list(posCell), round(len(posCell) * initialResistDen))
-    initial_state = [0] * l ** 2
-    for pos in posCell:
-        initial_state[pos] = 1
-    for pos in posResistCell:
-        initial_state[pos] = 2
-    initial_state = np.array(initial_state).reshape(l, l)
+    # initial_state = posCell = np.random.randint(0, l ** 2, size=round(initialCellDen * l ** 2))
+    # posResistCell = random.sample(list(posCell), round(len(posCell) * initialResistDen))
+    # initial_state = [0] * l ** 2
+    # for pos in posCell:
+    #     initial_state[pos] = 1
+    # for pos in posResistCell:
+    #     initial_state[pos] = 2
+    # initial_state = np.array(initial_state).reshape(l, l)
+    initial_state = np.zeros((100, 100))
+    pos = []
+    for i in range(100):
+        for j in range(100):
+            pos.append((i, j))
+    square_pos = []
+    for i in range(25, 75):
+        for j in range(25, 75):
+            square_pos.append((i, j))
+    for i in square_pos:
+        pos.remove(i)
+    selected_pos = random.sample(pos, 2500)
+    for i in selected_pos:
+        initial_state[i] = 1
+    for i in square_pos:
+        initial_state[i] = 1
+    selected_pos = random.sample(square_pos, 1000)
+    for i in selected_pos:
+        initial_state[i] = 2
 
     trainingDataDf = pd.DataFrame(
         {
             'PatientId': [125],
-            'DMax': [10],
+            'DMax': [2],
             'l': [l],
             'rS': [0.027],
-            'cR': [0.0],
+            'cR': [0.25],
             'dCell': [0.25],
             'dDrug': [0.75],
             'initialCellDen': [initialCellDen],
@@ -90,4 +109,4 @@ if __name__ == '__main__':
     ani = FuncAnimation(fig, update, frames=num_frames)
 
     # Save the animation as a GIF
-    ani.save('gif_increased_n0.gif', writer=PillowWriter(fps=7))
+    ani.save('gif_spatial_dose_2_longrun.gif', writer=PillowWriter(fps=7))

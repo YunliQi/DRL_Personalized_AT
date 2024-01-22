@@ -24,11 +24,11 @@ if __name__ == '__main__':
     day_interval = 7  # Interval between decision points (time step)
     learning_rate = 1e-4  # Learning rate
     num_workers = 8  #multiprocessing.cpu_count() # Set workers to number of available CPU threads
-    max_epochs = 3000
+    max_epochs = 100000
     model_path = "../models"  # Path to save model
-    model_name = "spatial_p125_weekly_punishment_adjusted"
+    model_name = "spatial_p125_weekly_spatial_dose_2_longrun"
     load_model = False
-    logging_interval = 50  # Will save the state of the network every logging_interval patients
+    logging_interval = 1000  # Will save the state of the network every logging_interval patients
     model_loaded_name = None
     verbose = 2
     
@@ -37,22 +37,41 @@ if __name__ == '__main__':
     initialResistDen = 0.1
     initialCellDen = 0.5
 
-    initial_state = posCell = np.random.randint(0, l ** 2, size=round(initialCellDen * l ** 2))
-    posResistCell = random.sample(list(posCell), round(len(posCell) * initialResistDen))
-    initial_state = [0] * l ** 2
-    for pos in posCell:
-        initial_state[pos] = 1
-    for pos in posResistCell:
-        initial_state[pos] = 2
-    initial_state = np.array(initial_state).reshape(l, l)
+    # initial_state = posCell = np.random.randint(0, l ** 2, size=round(initialCellDen * l ** 2))
+    # posResistCell = random.sample(list(posCell), round(len(posCell) * initialResistDen))
+    # initial_state = [0] * l ** 2
+    # for pos in posCell:
+    #     initial_state[pos] = 1
+    # for pos in posResistCell:
+    #     initial_state[pos] = 2
+    # initial_state = np.array(initial_state).reshape(l, l)
+    initial_state = np.zeros((100, 100))
+    pos = []
+    for i in range(100):
+        for j in range(100):
+            pos.append((i, j))
+    square_pos = []
+    for i in range(25, 75):
+        for j in range(25, 75):
+            square_pos.append((i, j))
+    for i in square_pos:
+        pos.remove(i)
+    selected_pos = random.sample(pos, 2500)
+    for i in selected_pos:
+        initial_state[i] = 1
+    for i in square_pos:
+        initial_state[i] = 1
+    selected_pos = random.sample(square_pos, 1000)
+    for i in selected_pos:
+        initial_state[i] = 2
 
     trainingDataDf = pd.DataFrame(
         {
             'PatientId': [125],
-            'DMax': [10],
+            'DMax': [2],
             'l': [l],
             'rS': [0.027],
-            'cR': [0.0],
+            'cR': [0.25],
             'dCell': [0.25],
             'dDrug': [0.75],
             'initialCellDen': [initialCellDen],
