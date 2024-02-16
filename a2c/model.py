@@ -177,9 +177,9 @@ class SimulationEnv(gym.Env):
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low=np.array([0.0]), high=np.array([1.0]))
         defaults_reward = {
-            'base': 0.5,  # Base reward given
+            'base': 0.1,  # Base reward given
             'hol': 0.05,  # Addition for a treatment holiday
-            'punish': 0,  # Punishment for tumor progression within simulation time frame
+            'punish': -0.1,  # Punishment for tumor progression within simulation time frame
             'drug_use': 0  # Reward for "correct" drug use
         }
         for key in defaults_reward.keys():
@@ -221,7 +221,7 @@ class SimulationEnv(gym.Env):
         if not done:
             if tumor_size > self.n0 and action == 0:  # Punishment for near failure
                 reward += self.reward_kws['punish']
-            if action == 0:  # Holiday Reward
+            if action == 1:  # Holiday Reward
                 reward += self.reward_kws['hol']
         return reward, done
 
@@ -381,8 +381,6 @@ class ABMModel(Simulation):
 class ODEModel(Simulation):
     def __init__(self, **kwargs):
         self.scale_factor = kwargs.get('scaleFactor', 1)
-        self.initial_dist = kwargs.get('initialStateList', [0.45, 0.05])
-        self.n0 = np.array(sum(self.initial_dist))
         self.dt = kwargs.get('dt', 1e-3)  # Time resolution to return the model prediction on
         self.absErr = kwargs.get('absErr', 1.0e-8)  # Absolute error allowed for ODE solver
         self.relErr = kwargs.get('relErr', 1.0e-6)  # Relative error allowed for ODE solver
@@ -392,7 +390,6 @@ class ODEModel(Simulation):
         self.success = False  # Indicate successful solution of the ODE system
         self.state_vars = ['P1']
         self.max_step = kwargs.get('max_step', 1)
-        self.result_state_vec = copy.deepcopy(self.initial_dist)
         self.dose_max = kwargs.get('DMax', 1)
 
     def simulate(self, treatment_schedule_list):
@@ -452,16 +449,22 @@ class LotkaVolterraModel(ODEModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.name = "LotkaVolterraModel"
-        self.param_dic = {'rS': 0.027,
-                          'rR': 0.027,
-                          'K': 1,
+        defaults_params = {'rS': 0.027,
+                          'rR': 0.0207927990105891,
+                          'K': 1.0,
                           'dD': 1.5,
-                          'dS': 0.,
-                          'dR': 0.,
-                          'S0': 0.74,
-                          'R0': 0.01,
-                          'DMax': 1}
+                          'dS': 0.0078682167556054,
+                          'dR': 0.0078682167556054,
+                          'S0': 0.4256703505169107,
+                          'R0': 4.256746072629835e-06,
+                          'DMax': 1.0}
+        for key in defaults_params.keys():
+            kwargs[key] = kwargs.get(key, defaults_params[key])
+        self.param_dic = kwargs
         self.state_vars = ['S', 'R']
+        self.initial_dist = [kwargs['S0'], kwargs['R0']]
+        self.result_state_vec = copy.deepcopy(self.initial_dist)
+        self.n0 = np.array(sum(self.initial_dist))
 
     # The governing equations
     def model_eqns(self, t, uVec):
