@@ -1,0 +1,8 @@
+,PatientId,DMax,l,rS,cR,dCell,dDrug,initialCellDen,initialResistDen,initialDist
+0,125,1,100,0.027,0.25,0.25,0.75,0.5,0.05,"[[1 0 0 ... 0 1 0]
+ [0 0 0 ... 1 1 0]
+ [1 1 0 ... 0 0 0]
+ ...
+ [0 0 0 ... 0 1 0]
+ [1 0 1 ... 0 1 0]
+ [1 1 1 ... 0 0 2]]"
