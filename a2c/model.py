@@ -28,7 +28,7 @@ num_episodes = 100000
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, architecture_kws={}):
+    def __init__(self, architecture_kws={}, device='cpu'):
         super(ActorCritic, self).__init__()
 
         defaults_architecture = {
@@ -42,11 +42,13 @@ class ActorCritic(nn.Module):
             architecture_kws[key] = architecture_kws.get(key, defaults_architecture[key])
         # Reward funtion
 
+        self.device = device
         self.num_actions = architecture_kws['n_doseOptions']
         num_inputs = architecture_kws['n_inputs']
         self.architecture = architecture_kws['architecture']
         self.firstLSTM = nn.LSTM(input_size=num_inputs, hidden_size=self.architecture[0], batch_first=True)
         self.hidden_layers = nn.ModuleList()
+        # self.hidden_layers.append(nn.Linear(1, self.architecture[0]))
         in_features = self.architecture[0]
         for out_features in self.architecture[1:]:
             self.hidden_layers.append(nn.Linear(in_features, out_features))
@@ -56,7 +58,7 @@ class ActorCritic(nn.Module):
         # Here, we still need weights initialisation of these two output layers
 
     def forward(self, state):
-        state = Variable(torch.from_numpy(state).float().unsqueeze(0).unsqueeze(0))
+        state = Variable(torch.from_numpy(state).float().unsqueeze(0).unsqueeze(0)).to(self.device)
         _, (h_n, _) = self.firstLSTM(state)
         out = h_n[-1]
         for layer in self.hidden_layers:
@@ -67,9 +69,9 @@ class ActorCritic(nn.Module):
         return value, policy_dist
 
 
-def a2c(env, architecture_kws={}, model_path='/home/yunli/DRL_Personalized_AT/a2c/torch_training/', learning_rate=1e-4, max_steps=8000, num_episodes=100000, GAMMA=0.9999, save_interval=10000):
+def a2c(env, architecture_kws={}, model_path='/home/yunli/DRL_Personalized_AT/a2c/torch_training/', learning_rate=1e-4, max_steps=8000, num_episodes=100000, GAMMA=0.9999, save_interval=10000, device='cpu'):
 
-    actor_critic = ActorCritic(architecture_kws)
+    actor_critic = ActorCritic(architecture_kws, device).to(device)
     ac_optimizer = optim.Adam(actor_critic.parameters(), lr=learning_rate)
 
     all_lengths = []
@@ -86,6 +88,9 @@ def a2c(env, architecture_kws={}, model_path='/home/yunli/DRL_Personalized_AT/a2
         treatment_history = ''
         for steps in range(max_steps):
             value, policy_dist = actor_critic.forward(state)
+            if str(device) == 'cuda':
+                value = value.cpu()
+                policy_dist = policy_dist.cpu()
             value = value.detach().numpy()[0]
             dist = policy_dist.detach().numpy()
 
@@ -108,6 +113,8 @@ def a2c(env, architecture_kws={}, model_path='/home/yunli/DRL_Personalized_AT/a2
 
             if done or steps == max_steps-1:
                 Qval, _ = actor_critic.forward(new_state)
+                if str(device) == 'cuda':
+                    Qval = Qval.cpu()
                 Qval = Qval.detach().numpy()[0]
                 all_rewards.append(np.sum(rewards))
                 all_lengths.append(steps)
@@ -219,7 +226,7 @@ class SimulationEnv(gym.Env):
             done = True
             reward += 5
         if not done:
-            if tumor_size > self.n0 and action == 0:  # Punishment for near failure
+            if tumor_size > self.n0 and action == 1:  # Punishment for near failure
                 reward += self.reward_kws['punish']
             if action == 1:  # Holiday Reward
                 reward += self.reward_kws['hol']
@@ -231,6 +238,28 @@ class SimulationEnv(gym.Env):
         self.time = 0
         self.model.result_state_vec = copy.deepcopy(self.model.initial_dist)
         return self.tumor_size
+
+
+class VectorisedEnv(gym.Env):
+    """Vectorized wrapper for the SimulationEnv"""
+    def __init__(self, env_class, n_envs, model, treatment_period, reward_kws={}):
+        self.envs = [env_class(model, treatment_period, reward_kws) for _ in range(n_envs)]
+        self.n_envs = n_envs
+
+        # Assuming all environments have the same observation and action space
+        self.action_space = self.envs[0].action_space
+        self.observation_space = self.envs[0].observation_space
+
+    def reset(self):
+        """Reset all environments and return an array of observations."""
+        observations = [env.reset() for env in self.envs]
+        return observations
+
+    def step(self, actions):
+        """Step through all environments with the given list of actions."""
+        results = [env.step(action) for env, action in zip(self.envs, actions)]
+        observations, rewards, dones, infos = zip(*results)
+        return observations, rewards, dones, infos
 
 
 class Simulation():
@@ -267,7 +296,7 @@ class ABMModel(Simulation):
                 self.initial_dist = None
 
         if self.initial_dist is None:
-            pos_cell = np.random.randint(0, self.side_len ** 2, size=round(self.initial_cell_den * self.side_len ** 2))
+            pos_cell = np.random.choice(range(0, self.side_len ** 2), round(self.initial_cell_den * self.side_len ** 2), replace=False)
             pos_resist_cell = random.sample(list(pos_cell), round(len(pos_cell) * self.initial_resist_den))
             curr_state_vec = [0] * self.side_len ** 2
             for pos in pos_cell:
@@ -278,7 +307,8 @@ class ABMModel(Simulation):
             self.result_state_vec = copy.deepcopy(curr_state_vec)
         else:
             self.result_state_vec = copy.deepcopy(np.array(self.initial_dist))
-        self.n0 = (np.sum(self.result_state_vec == 1) + np.sum(self.result_state_vec == 2)) / self.side_len ** 2
+        self.n0 = np.array((np.sum(curr_state_vec == 1) + np.sum(curr_state_vec == 2)) / self.side_len ** 2)
+        self.initial_dist = copy.deepcopy(self.result_state_vec)
 
     def simulate(self, treatment_schedule_list):
         curr_state_vec = copy.deepcopy(self.result_state_vec)
@@ -569,7 +599,7 @@ def stdout_redirected(to=os.devnull, stdout=None):
             os.dup2(copied.fileno(), stdout_fd)  # $ exec >&copied
 
 
-def run_training(model, treatment_period=7, reward_kws={}, architecture_kws={}, path='/home/yunli/DRL_Personalized_AT/a2c/torch_training/', model_name='a2c_default', learning_rate=1e-4, max_step=8000, num_episodes=100000, GAMMA=0.9999):
+def run_training(model, treatment_period=30, device='cpu', save_interval=10000, reward_kws={}, architecture_kws={}, path='/home/yunli/DRL_Personalized_AT/a2c/torch_training/', model_name='a2c_default', learning_rate=1e-4, max_step=8000, num_episodes=100000, GAMMA=0.9999):
     model_folder_path = path + model_name
     if os.path.exists(model_folder_path):
         model_folder_path += '_a'
@@ -579,27 +609,27 @@ def run_training(model, treatment_period=7, reward_kws={}, architecture_kws={}, 
     os.mkdir(model_folder_path)
     logging.basicConfig(filename=model_folder_path + 'training_log.log', level=logging.INFO, format='%(asctime)s %(message)s')
     env = SimulationEnv(model, treatment_period, reward_kws)
-    a2c(env, architecture_kws, model_folder_path, learning_rate, max_step, num_episodes, GAMMA)
+    a2c(env, architecture_kws, model_folder_path, learning_rate, max_step, num_episodes, GAMMA, save_interval, device)
 
 
-def run_prediction(model, reward_kws={}, architecture_kws={}, model_store_path='/home/yunli/DRL_Personalized_AT/a2c/torch_training/a2c_default/a2c_model_final.pth'):
+def run_prediction(model, treatment_period=30, reward_kws={}, architecture_kws={}, model_store_path='/home/yunli/DRL_Personalized_AT/a2c/torch_training/a2c_default/a2c_model_final.pth'):
     loaded_actor_critic = ActorCritic(architecture_kws)
     loaded_actor_critic.load_state_dict(torch.load(model_store_path, map_location=torch.device('cpu')))
     loaded_actor_critic.eval()
-    env = SimulationEnv(model, reward_kws)
+    env = SimulationEnv(model, treatment_period, reward_kws)
     output_df = pd.DataFrame(columns=['Time', 'TumourSize', 'Support_Hol', 'Support_Treat', 'Action'])
     with torch.no_grad():  # This will temporarily set all the requires_grad flag to false
         state = env.reset()
         done = False
         while not done:
             _, dist = loaded_actor_critic(state)
-            action = np.random.choice(2, p=np.squeeze(dist))
+            action = np.random.choice(2, p=np.squeeze(dist).detach().numpy())
             state, _, done, _ = env.step(action)
             if action == 0:
                 Action = 'T'
             else:
                 Action = 'H'
-            new_data = {'Time': env.time, 'TumourSize': env.tumor_size, 'Support_Hol': dist[1], 'Support_Treat': dist[0], 'Action': Action}
+            new_data = {'Time': env.time, 'TumourSize': env.tumor_size, 'Support_Hol': dist[1].detach().numpy(), 'Support_Treat': dist[0].detach().numpy(), 'Action': Action}
             output_df.loc[len(output_df)] = new_data
     model_path_list = model_store_path.split('/')
     model_path = '/'.join(model_path_list[:-1]) + '/'

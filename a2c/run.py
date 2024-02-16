@@ -1,8 +1,14 @@
 import model
+import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cpu")
+print('Device used:', device)
 kwargs = {
     'method': 'DOP853'
 }
 
 mod = model.LotkaVolterraModel(**kwargs)
-model.run_training(mod, model_name='a2c_new_param', path='/Users/yunliqi/DRL_Personalized_AT/a2c/torch_training/')
+model.run_training(mod, treatment_period=30, device=device, model_name='a2c_my_structure', path='/home/leo/DRL_Personalized_AT/a2c/torch_training/', num_episodes=200000)
+
+# model.run_prediction(mod, treatment_period=30, model_store_path='/home/leo/DRL_Personalized_AT/a2c/torch_training/a2c_same_structure/a2c_model_10000.pth')
