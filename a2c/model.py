@@ -1,4 +1,5 @@
 import sys
+sys.path.append('/home/leo/DRL_Personalized_AT/')
 import torch
 import gym
 import numpy as np
@@ -6,7 +7,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
-# import matplotlib.pyplot as plt
 import pandas as pd
 from gym import spaces
 import math
@@ -17,6 +17,11 @@ import scipy.integrate
 import os
 import contextlib
 import logging
+from a2c.abm_gpu import perform_checks
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
+from matplotlib.animation import PillowWriter, FuncAnimation
 
 # hyperparameters
 learning_rate = 1e-4
@@ -241,6 +246,7 @@ class SimulationEnv(gym.Env):
             reward_kws[key] = reward_kws.get(key, defaults_reward[key])
         self.reward_kws = reward_kws
         self.model = model
+        self.plot = []
 
     def step(self, action):
         t_start = self.time
@@ -254,6 +260,8 @@ class SimulationEnv(gym.Env):
             self.result_df = result_df
         else:
             self.result_df = pd.concat([self.result_df, result_df])
+        if isinstance(self.model, ABMModel):
+            self.plot += self.model.plate_state_log
 
         reward, done = self.calculate_reward(self.time, action)
         info = {}
@@ -368,85 +376,102 @@ class ABMModel(Simulation):
         t_start = treatment_schedule_list[0]
         t_end = treatment_schedule_list[1]
         dose = treatment_schedule_list[2]
-        threshold_s = [self.r_s, self.r_s * (1 + self.d_cell), 1]
-        threshold_r = [(1 - self.c_r) * self.r_s, (1 - self.c_r) * self.r_s + self.r_s * self.d_cell, 1]
+
+        # threshold_s = [self.r_s, self.r_s * (1 + self.d_cell), 1]
+        # threshold_r = [(1 - self.c_r) * self.r_s, (1 - self.c_r) * self.r_s + self.r_s * self.d_cell, 1]
+
         self.plate_state_log = []
         for t in range(t_start, t_end):
             self.plate_state_log.append(copy.deepcopy(curr_state_vec))
-            for i in range(self.side_len):
-                for j in range(self.side_len):
-                    if curr_state_vec[i, j] == 0:
-                        pass
-                    elif curr_state_vec[i, j] == 100:
-                        pass
-                    elif curr_state_vec[i, j] == 10:
-                        pass
-                    elif curr_state_vec[i, j] == 1:
-                        rand = np.random.rand()
-                        if rand < threshold_s[0]:
-                            curr_neighb = []
-                            if i == 0:
-                                curr_neighb.append(None)
-                            else:
-                                curr_neighb.append([(i - 1, j), curr_state_vec[i - 1, j]])
-                            if i == self.side_len - 1:
-                                curr_neighb.append(None)
-                            else:
-                                curr_neighb.append([(i + 1, j), curr_state_vec[i + 1, j]])
-                            if j == 0:
-                                curr_neighb.append(None)
-                            else:
-                                curr_neighb.append([(i, j - 1), curr_state_vec[i, j - 1]])
-                            if j == self.side_len - 1:
-                                curr_neighb.append(None)
-                            else:
-                                curr_neighb.append([(i, j + 1), curr_state_vec[i, j + 1]])
-                            curr_neighb = [item for item in curr_neighb if item is not None]
-                            curr_neighb = [item for item in curr_neighb if item[1] == 0]
-                            if curr_neighb:
-                                rand_kill = np.random.rand()
-                                if rand_kill < dose * self.d_drug:
-                                    curr_state_vec[i, j] == 0
-                                else:
-                                    pos_proliferate = random.sample(curr_neighb, 1)[0][0]
-                                    curr_state_vec[pos_proliferate] = 10
-                        elif rand < threshold_s[1]:
-                            curr_state_vec[i, j] = 0
-                        else:
-                            pass
-                    elif curr_state_vec[i, j] == 2:
-                        rand = np.random.rand()
-                        if rand < threshold_r[0]:
-                            curr_neighb = []
-                            if i == 0:
-                                curr_neighb.append(None)
-                            else:
-                                curr_neighb.append([(i - 1, j), curr_state_vec[i - 1, j]])
-                            if i == self.side_len - 1:
-                                curr_neighb.append(None)
-                            else:
-                                curr_neighb.append([(i + 1, j), curr_state_vec[i + 1, j]])
-                            if j == 0:
-                                curr_neighb.append(None)
-                            else:
-                                curr_neighb.append([(i, j - 1), curr_state_vec[i, j - 1]])
-                            if j == self.side_len - 1:
-                                curr_neighb.append(None)
-                            else:
-                                curr_neighb.append([(i, j + 1), curr_state_vec[i, j + 1]])
-                            curr_neighb = [item for item in curr_neighb if item is not None]
-                            curr_neighb = [item for item in curr_neighb if item[1] == 0]
-                            if curr_neighb:
-                                pos_proliferate = random.sample(list(curr_neighb), 1)[0][0]
-                                curr_state_vec[pos_proliferate] = 100
-                        elif rand < threshold_r[1]:
-                            curr_state_vec[i, j] = 0
-                        else:
-                            pass
-            curr_state_vec = curr_state_vec.reshape(1, -1)[0]
-            curr_state_vec = np.array([1 if item == 10 else item for item in curr_state_vec])
-            curr_state_vec = np.array([2 if item == 100 else item for item in curr_state_vec])
-            curr_state_vec = curr_state_vec.reshape(self.side_len, self.side_len)
+            # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            device = torch.device("cpu")
+            grid = torch.tensor(curr_state_vec, device=device)
+            padded_grid = F.pad(grid, (1, 1, 1, 1), 'constant', -1)
+            patches = padded_grid.unfold(0, 3, 1).unfold(1, 3, 1)
+            patches = patches.contiguous().view(-1, 3*3)
+
+            columns_to_keep = [1, 3, 4, 5, 7]
+
+            # Select the desired columns
+            patches = patches[:, columns_to_keep]
+            res = perform_checks(patches, self, dose)
+            for key in res:
+                curr_state_vec[key] = res[key]
+
+            # for i in range(self.side_len):
+            #     for j in range(self.side_len):
+            #         if curr_state_vec[i, j] == 0:
+            #             pass
+            #         elif curr_state_vec[i, j] == 100:
+            #             pass
+            #         elif curr_state_vec[i, j] == 10:
+            #             pass
+            #         elif curr_state_vec[i, j] == 1:
+            #             rand = np.random.rand()
+            #             if rand < threshold_s[0]:
+            #                 curr_neighb = []
+            #                 if i == 0:
+            #                     curr_neighb.append(None)
+            #                 else:
+            #                     curr_neighb.append([(i - 1, j), curr_state_vec[i - 1, j]])
+            #                 if i == self.side_len - 1:
+            #                     curr_neighb.append(None)
+            #                 else:
+            #                     curr_neighb.append([(i + 1, j), curr_state_vec[i + 1, j]])
+            #                 if j == 0:
+            #                     curr_neighb.append(None)
+            #                 else:
+            #                     curr_neighb.append([(i, j - 1), curr_state_vec[i, j - 1]])
+            #                 if j == self.side_len - 1:
+            #                     curr_neighb.append(None)
+            #                 else:
+            #                     curr_neighb.append([(i, j + 1), curr_state_vec[i, j + 1]])
+            #                 curr_neighb = [item for item in curr_neighb if item is not None]
+            #                 curr_neighb = [item for item in curr_neighb if item[1] == 0]
+            #                 if curr_neighb:
+            #                     rand_kill = np.random.rand()
+            #                     if rand_kill < dose * self.d_drug:
+            #                         curr_state_vec[i, j] == 0
+            #                     else:
+            #                         pos_proliferate = random.sample(curr_neighb, 1)[0][0]
+            #                         curr_state_vec[pos_proliferate] = 10
+            #             elif rand < threshold_s[1]:
+            #                 curr_state_vec[i, j] = 0
+            #             else:
+            #                 pass
+            #         elif curr_state_vec[i, j] == 2:
+            #             rand = np.random.rand()
+            #             if rand < threshold_r[0]:
+            #                 curr_neighb = []
+            #                 if i == 0:
+            #                     curr_neighb.append(None)
+            #                 else:
+            #                     curr_neighb.append([(i - 1, j), curr_state_vec[i - 1, j]])
+            #                 if i == self.side_len - 1:
+            #                     curr_neighb.append(None)
+            #                 else:
+            #                     curr_neighb.append([(i + 1, j), curr_state_vec[i + 1, j]])
+            #                 if j == 0:
+            #                     curr_neighb.append(None)
+            #                 else:
+            #                     curr_neighb.append([(i, j - 1), curr_state_vec[i, j - 1]])
+            #                 if j == self.side_len - 1:
+            #                     curr_neighb.append(None)
+            #                 else:
+            #                     curr_neighb.append([(i, j + 1), curr_state_vec[i, j + 1]])
+            #                 curr_neighb = [item for item in curr_neighb if item is not None]
+            #                 curr_neighb = [item for item in curr_neighb if item[1] == 0]
+            #                 if curr_neighb:
+            #                     pos_proliferate = random.sample(list(curr_neighb), 1)[0][0]
+            #                     curr_state_vec[pos_proliferate] = 100
+            #             elif rand < threshold_r[1]:
+            #                 curr_state_vec[i, j] = 0
+            #             else:
+            #                 pass
+            # curr_state_vec = curr_state_vec.reshape(1, -1)[0]
+            # curr_state_vec = np.array([1 if item == 10 else item for item in curr_state_vec])
+            # curr_state_vec = np.array([2 if item == 100 else item for item in curr_state_vec])
+            # curr_state_vec = curr_state_vec.reshape(self.side_len, self.side_len)
         num_s = [np.sum(self.result_state_vec == 1) / self.side_len ** 2, np.sum(curr_state_vec == 1) / self.side_len ** 2]
         num_r = [np.sum(self.result_state_vec == 2) / self.side_len ** 2, np.sum(curr_state_vec == 2) / self.side_len ** 2]
         self.result_state_vec = copy.deepcopy(curr_state_vec)
@@ -687,3 +712,32 @@ def run_prediction(model, treatment_period=30, reward_kws={}, architecture_kws={
     model_path_list = model_store_path.split('/')
     model_path = '/'.join(model_path_list[:-1]) + '/'
     output_df.to_csv(model_path + 'prediction.csv')
+    if isinstance(model, ABMModel):
+        num_frames = len(env.plot)
+
+        def update(frame_number):
+            data = env.plot[frame_number]
+            ax.clear()
+            
+            # Define a custom colormap
+            cmap = mcolors.ListedColormap(['white', 'green', 'red'])
+            bounds = [-0.5, 0.5, 1.5, 2.5]
+            norm = mcolors.BoundaryNorm(bounds, cmap.N)
+
+            # Create the plot
+            ax.imshow(data, cmap=cmap, norm=norm)
+            ax.axis('off')
+            
+            # You might need to adjust the legend for each frame or create it once outside the update function
+            red_patch = mpatches.Patch(color='red', label='Sensitive')
+            green_patch = mpatches.Patch(color='green', label='Resistant')
+            ax.legend(handles=[red_patch, green_patch], loc='upper right')
+
+        # Create the initial figure and axes
+        fig, ax = plt.subplots(figsize=(10, 10))
+
+        # Create the animation
+        ani = FuncAnimation(fig, update, frames=num_frames)
+
+        # Save the animation as a GIF
+        ani.save(model_path + 'transfer_learning.gif', writer=PillowWriter(fps=treatment_period))
